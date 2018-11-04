@@ -25,13 +25,18 @@ typedef struct MainPanel_ {
    pid_t pidSearch;
 } MainPanel;
 
-typedef bool(*MainPanel_ForeachProcessFn)(Process*, size_t);
+typedef union {
+   int i;
+   void* v;
+} Arg;
+
+typedef bool(*MainPanel_ForeachProcessFn)(Process*, Arg);
 
 #define MainPanel_getFunctionBar(this_) (((Panel*)(this_))->defaultBar)
 
 }*/
 
-static const char* MainFunctions[]  = {"Help  ", "Setup ", "Search", "Filter", "Tree  ", "SortBy", "Nice -", "Nice +", "Kill  ", "Quit  ", NULL};
+static const char* const MainFunctions[]  = {"Help  ", "Setup ", "Search", "Filter", "Tree  ", "SortBy", "Nice -", "Nice +", "Kill  ", "Quit  ", NULL};
 
 void MainPanel_updateTreeFunctions(MainPanel* this, bool mode) {
    FunctionBar* bar = MainPanel_getFunctionBar(this);
@@ -83,14 +88,14 @@ static HandlerResult MainPanel_eventHandler(Panel* super, int ch) {
       result = HANDLED;
    } else if (ch != ERR && this->inc->active) {
       bool filterChanged = IncSet_handleKey(this->inc, ch, super, (IncMode_GetPanelValue) MainPanel_getValue, NULL);
-      if (this->inc->found) {
-         reaction |= Action_follow(this->state);
-      }
       if (filterChanged) {
          this->state->pl->incFilter = IncSet_filter(this->inc);
          reaction = HTOP_REFRESH | HTOP_REDRAW_BAR;
       }
-      reaction |= HTOP_KEEP_FOLLOWING;
+      if (this->inc->found) {
+         reaction |= Action_follow(this->state);
+         reaction |= HTOP_KEEP_FOLLOWING;
+      }
       result = HANDLED;
    } else if (ch == 27) {
       return HANDLED;
@@ -148,7 +153,7 @@ const char* MainPanel_getValue(MainPanel* this, int i) {
    return "";
 }
 
-bool MainPanel_foreachProcess(MainPanel* this, MainPanel_ForeachProcessFn fn, size_t arg, bool* wasAnyTagged) {
+bool MainPanel_foreachProcess(MainPanel* this, MainPanel_ForeachProcessFn fn, Arg arg, bool* wasAnyTagged) {
    Panel* super = (Panel*) this;
    bool ok = true;
    bool anyTagged = false;

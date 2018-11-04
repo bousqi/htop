@@ -34,9 +34,9 @@ typedef struct ColorsPanel_ {
 
 }*/
 
-static const char* ColorsFunctions[] = {"      ", "      ", "      ", "      ", "      ", "      ", "      ", "      ", "      ", "Done  ", NULL};
+static const char* const ColorsFunctions[] = {"      ", "      ", "      ", "      ", "      ", "      ", "      ", "      ", "      ", "Done  ", NULL};
 
-static const char* ColorSchemeNames[] = {
+static const char* const ColorSchemeNames[] = {
    "Default",
    "Monochromatic",
    "Black on White",
@@ -78,6 +78,7 @@ static HandlerResult ColorsPanel_eventHandler(Panel* super, int ch) {
       this->settings->changed = true;
       const Header* header = this->scr->header;
       CRT_setColors(mark);
+      clear();
       Panel* menu = (Panel*) Vector_get(this->scr->panels, 0);
       Header_draw(header);
       RichString_setAttr(&(super->header), CRT_colors[PANEL_HEADER_FOCUS]);

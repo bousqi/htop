@@ -1,3 +1,68 @@
+What's new in version 2.2.0
+
+* Solaris/Illumos/OpenIndiana support
+  (thanks to Guy M. Broome)
+* -t/--tree flag for starting in tree-view mode
+  (thanks to Daniel Flanagan)
+* macOS: detects High Sierra version to avoid OS bug
+  (thanks to Pierre Malhaire)
+* OpenBSD: read battery data
+  (thanks to @nerd972)
+* Various automake and build improvements
+  (thanks to Kang-Che Sung)
+* Check for pkg-config when building with --enable-delayacct
+  (thanks to @florian2833z for the report)
+* Avoid some bashisms in configure script
+  (thanks to Jesin)
+* Use CFLAGS from ncurses*-config if present
+  (thanks to Michael Klein)
+* Header generator supports non-UTF-8 environments
+  (thanks to @volkov-am)
+* Linux: changed detection of kernel threads
+* Collapse current subtree pressing Backspace
+* BUGFIX: fix behavior of SYSCR column
+  (thanks to Marc Kleine-Budde)
+* BUGFIX: obtain exit code of lsof correctly
+  (thanks to @wangqr)
+* BUGFIX: fix crash with particular keycodes
+  (thanks to Wellington Torrejais da Silva for the report)
+* BUGFIX: fix issue with small terminals
+  (thanks to Daniel Elf for the report)
+* BUGFIX: fix terminal color issues
+  (thanks to Kang-Che Sung for the report)
+* BUGFIX: preserve LDFLAGS when building
+  (thanks to Lance Frederickson for the report)
+* BUGFIX: fixed overflow for systems with >= 100 signals
+
+What's new in version 2.1.0
+
+* Linux: Delay accounting metrics
+  (thanks to André Carvalho)
+* DragonFlyBSD support
+  (thanks to Diederik de Groot)
+* Support for real-time signals
+  (thanks to Kang-Che Sung)
+* 'c' key now works with threads as well
+* Session column renamed from SESN to SID
+  (thanks to Kamyar Rasta)
+* Improved UI for meter style selection
+  (thanks to Kang-Che Sung)
+* Improved code for constructing process tree
+  (thanks to wangqr)
+* Compile-time option to disable setuid
+* Error checking of various standard library operations
+* Replacement of sprintf with snprintf
+  (thanks to Tomasz Kramkowski)
+* Linux: performance improvements in battery meter
+* Linux: update process TTY device
+* Linux: add support for sorting TASK_IDLE
+  (thanks to Vladimir Panteleev)
+* Linux: add upper-bound to running process counter
+  (thanks to Lucas Correia Villa Real)
+* BUGFIX: avoid crash when battery is removed
+  (thanks to Jan Chren)
+* BUGFIX: macOS: fix infinite loop in tree view
+  (thanks to Wataru Ashihara)
 
 What's new in version 2.0.2
 

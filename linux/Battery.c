@@ -41,11 +41,9 @@ static unsigned long int parseBatInfo(const char *fileName, const unsigned short
    unsigned int nBatteries = 0;
    memset(batteries, 0, MAX_BATTERIES * sizeof(char*));
 
-   struct dirent result;
-   struct dirent* dirEntry;
    while (nBatteries < MAX_BATTERIES) {
-      int err = readdir_r(batteryDir, &result, &dirEntry);
-      if (err || !dirEntry)
+      struct dirent* dirEntry = readdir(batteryDir);
+      if (!dirEntry)
          break;
       char* entryName = dirEntry->d_name;
       if (strncmp(entryName, "BAT", 3))
@@ -58,7 +56,7 @@ static unsigned long int parseBatInfo(const char *fileName, const unsigned short
    unsigned long int total = 0;
    for (unsigned int i = 0; i < nBatteries; i++) {
       char infoPath[30];
-      snprintf(infoPath, sizeof infoPath, "%s%s/%s", batteryPath, batteries[i], fileName);
+      xSnprintf(infoPath, sizeof infoPath, "%s%s/%s", batteryPath, batteries[i], fileName);
 
       FILE* file = fopen(infoPath, "r");
       if (!file) {
@@ -73,6 +71,8 @@ static unsigned long int parseBatInfo(const char *fileName, const unsigned short
       }
 
       fclose(file);
+
+      if (!line) break;
 
       char *foundNumStr = String_getToken(line, wordNum);
       const unsigned long int foundNum = atoi(foundNumStr);
@@ -97,11 +97,9 @@ static ACPresence procAcpiCheck() {
       return AC_ERROR;
    }
 
-   struct dirent result;
-   struct dirent* dirEntry;
    for (;;) {
-      int err = readdir_r((DIR *) dir, &result, &dirEntry);
-      if (err || !dirEntry)
+      struct dirent* dirEntry = readdir((DIR *) dir);
+      if (!dirEntry)
          break;
 
       char* entryName = (char *) dirEntry->d_name;
@@ -110,18 +108,15 @@ static ACPresence procAcpiCheck() {
          continue;
 
       char statePath[50];
-      snprintf((char *) statePath, sizeof statePath, "%s/%s/state", power_supplyPath, entryName);
+      xSnprintf((char *) statePath, sizeof statePath, "%s/%s/state", power_supplyPath, entryName);
       FILE* file = fopen(statePath, "r");
-
       if (!file) {
          isOn = AC_ERROR;
          continue;
       }
-
       char* line = String_readLine(file);
-      if (!line) continue;
-
       fclose(file);
+      if (!line) continue;
 
       const char *isOnline = String_getToken(line, 2);
       free(line);
@@ -179,25 +174,6 @@ static inline ssize_t xread(int fd, void *buf, size_t count) {
   }
 }
 
-/**
- * Returns a pointer to the suffix of `str` if its beginning matches `prefix`.
- * Returns NULL if the prefix does not match.
- * Examples: 
- * match("hello world", "hello "); -> "world"
- * match("hello world", "goodbye "); -> NULL
- */
-static inline const char* match(const char* str, const char* prefix) {
-   for (;;) {
-      if (*prefix == '\0') {
-         return str;
-      }
-      if (*prefix != *str) {
-         return NULL;
-      }
-      prefix++; str++;
-   }
-}
-
 static void Battery_getSysData(double* level, ACPresence* isOnAC) {
       
    *level = 0;
@@ -210,18 +186,16 @@ static void Battery_getSysData(double* level, ACPresence* isOnAC) {
    unsigned long int totalFull = 0;
    unsigned long int totalRemain = 0;
 
-   struct dirent result;
-   struct dirent* dirEntry;
    for (;;) {
-      int err = readdir_r((DIR *) dir, &result, &dirEntry);
-      if (err || !dirEntry)
+      struct dirent* dirEntry = readdir((DIR *) dir);
+      if (!dirEntry)
          break;
       char* entryName = (char *) dirEntry->d_name;
       const char filePath[50];
 
       if (entryName[0] == 'B' && entryName[1] == 'A' && entryName[2] == 'T') {
          
-         snprintf((char *) filePath, sizeof filePath, SYS_POWERSUPPLY_DIR "/%s/uevent", entryName);
+         xSnprintf((char *) filePath, sizeof filePath, SYS_POWERSUPPLY_DIR "/%s/uevent", entryName);
          int fd = open(filePath, O_RDONLY);
          if (fd == -1) {
             closedir(dir);
@@ -240,6 +214,8 @@ static void Battery_getSysData(double* level, ACPresence* isOnAC) {
          bool full = false;
          bool now = false;
          while ((line = strsep(&buf, "\n")) != NULL) {
+   #define match(str,prefix) \
+           (String_startsWith(str,prefix) ? (str) + strlen(prefix) : NULL)
             const char* ps = match(line, "POWER_SUPPLY_");
             if (!ps) {
                continue;
@@ -266,12 +242,13 @@ static void Battery_getSysData(double* level, ACPresence* isOnAC) {
                continue;
             }
          }
+   #undef match
       } else if (entryName[0] == 'A') {
          if (*isOnAC != AC_ERROR) {
             continue;
          }
       
-         snprintf((char *) filePath, sizeof filePath, SYS_POWERSUPPLY_DIR "/%s/online", entryName);
+         xSnprintf((char *) filePath, sizeof filePath, SYS_POWERSUPPLY_DIR "/%s/online", entryName);
          int fd = open(filePath, O_RDONLY);
          if (fd == -1) {
             closedir(dir);
@@ -325,6 +302,9 @@ void Battery_getData(double* level, ACPresence* isOnAC) {
    if (Battery_method == BAT_ERR) {
       *level = -1;
       *isOnAC = AC_ERROR;
+   }
+   if (*level > 100.0) {
+      *level = 100.0;
    }
    Battery_cacheLevel = *level;
    Battery_cacheIsOnAC = *isOnAC;

@@ -115,7 +115,7 @@ static void Action_runSetup(Settings* settings, const Header* header, ProcessLis
 
 static bool changePriority(MainPanel* panel, int delta) {
    bool anyTagged;
-   bool ok = MainPanel_foreachProcess(panel, (MainPanel_ForeachProcessFn) Process_changePriorityBy, delta, &anyTagged);
+   bool ok = MainPanel_foreachProcess(panel, (MainPanel_ForeachProcessFn) Process_changePriorityBy, (Arg){ .i = delta }, &anyTagged);
    if (!ok)
       beep();
    return anyTagged;
@@ -142,7 +142,7 @@ static void tagAllChildren(Panel* panel, Process* parent) {
    pid_t ppid = parent->pid;
    for (int i = 0; i < Panel_size(panel); i++) {
       Process* p = (Process*) Panel_get(panel, i);
-      if (!p->tag && p->ppid == ppid) {
+      if (!p->tag && Process_isChildOf(p, ppid)) {
          tagAllChildren(panel, p);
       }
    }
@@ -153,6 +153,21 @@ static bool expandCollapse(Panel* panel) {
    if (!p) return false;
    p->showChildren = !p->showChildren;
    return true;
+}
+
+static bool collapseIntoParent(Panel* panel) {
+   Process* p = (Process*) Panel_getSelected(panel);
+   if (!p) return false;
+   pid_t ppid = Process_getParentPid(p);
+   for (int i = 0; i < Panel_size(panel); i++) {
+      Process* q = (Process*) Panel_get(panel, i);
+      if (q->pid == ppid) {
+         q->showChildren = false;
+         Panel_setSelected(panel, i);
+         return true;
+      }
+   }
+   return false;
 }
 
 Htop_Reaction Action_setSortKey(Settings* settings, ProcessField sortKey) {
@@ -185,6 +200,7 @@ static Htop_Reaction sortBy(State* st) {
 // ----------------------------------------
 
 static Htop_Reaction actionResize(State* st) {
+   clear();
    Panel_resize(st->panel, COLS, LINES-(st->panel->y)-1);
    return HTOP_REDRAW_BAR;
 }
@@ -260,6 +276,14 @@ static Htop_Reaction actionExpandOrCollapse(State* st) {
    return changed ? HTOP_RECALCULATE : HTOP_OK;
 }
 
+static Htop_Reaction actionCollapseIntoParent(State* st) {
+   if (!st->settings->treeView) {
+      return HTOP_OK;
+   }
+   bool changed = collapseIntoParent(st->panel);
+   return changed ? HTOP_RECALCULATE : HTOP_OK;
+}
+
 static Htop_Reaction actionExpandCollapseOrSortColumn(State* st) {
    return st->settings->treeView ? actionExpandOrCollapse(st) : actionSetSortColumn(st);
 }
@@ -284,7 +308,7 @@ static Htop_Reaction actionSetAffinity(State* st) {
    void* set = Action_pickFromVector(st, affinityPanel, 15);
    if (set) {
       Affinity* affinity = AffinityPanel_getAffinity(affinityPanel, st->pl);
-      bool ok = MainPanel_foreachProcess((MainPanel*)panel, (MainPanel_ForeachProcessFn) Affinity_set, (size_t) affinity, NULL);
+      bool ok = MainPanel_foreachProcess((MainPanel*)panel, (MainPanel_ForeachProcessFn) Affinity_set, (Arg){ .v = affinity }, NULL);
       if (!ok) beep();
       Affinity_delete(affinity);
    }
@@ -301,7 +325,7 @@ static Htop_Reaction actionKill(State* st) {
          Panel_setHeader(st->panel, "Sending...");
          Panel_draw(st->panel, true);
          refresh();
-         MainPanel_foreachProcess((MainPanel*)st->panel, (MainPanel_ForeachProcessFn) Process_sendSignal, (size_t) sgn->key, NULL);
+         MainPanel_foreachProcess((MainPanel*)st->panel, (MainPanel_ForeachProcessFn) Process_sendSignal, (Arg){ .i = sgn->key }, NULL);
          napms(500);
       }
    }
@@ -381,7 +405,7 @@ static Htop_Reaction actionRedraw() {
    return HTOP_REFRESH | HTOP_REDRAW_BAR;
 }
 
-static struct { const char* key; const char* info; } helpLeft[] = {
+static const struct { const char* key; const char* info; } helpLeft[] = {
    { .key = " Arrows: ", .info = "scroll process list" },
    { .key = " Digits: ", .info = "incremental PID search" },
    { .key = "   F3 /: ", .info = "incremental name search" },
@@ -395,11 +419,11 @@ static struct { const char* key; const char* info; } helpLeft[] = {
    { .key = " F6 + -: ", .info = "expand/collapse tree" },
    { .key = "  P M T: ", .info = "sort by CPU%, MEM% or TIME" },
    { .key = "      I: ", .info = "invert sort order" },
-   { .key = "   F6 >: ", .info = "select sort column" },
+   { .key = " F6 > .: ", .info = "select sort column" },
    { .key = NULL, .info = NULL }
 };
 
-static struct { const char* key; const char* info; } helpRight[] = {
+static const struct { const char* key; const char* info; } helpRight[] = {
    { .key = "  Space: ", .info = "tag process" },
    { .key = "      c: ", .info = "tag process and its children" },
    { .key = "      U: ", .info = "untag all processes" },
@@ -414,7 +438,7 @@ static struct { const char* key; const char* info; } helpRight[] = {
    { .key = "      l: ", .info = "list open files with lsof" },
    { .key = "      s: ", .info = "trace syscalls with strace" },
    { .key = "         ", .info = "" },
-   { .key = "   F2 S: ", .info = "setup" },
+   { .key = " F2 C S: ", .info = "setup" },
    { .key = "   F1 h: ", .info = "show this help screen" },
    { .key = "  F10 q: ", .info = "quit" },
    { .key = NULL, .info = NULL }
@@ -556,6 +580,7 @@ void Action_setBindings(Htop_Action* keys) {
    keys['+'] = actionExpandOrCollapse;
    keys['='] = actionExpandOrCollapse;
    keys['-'] = actionExpandOrCollapse;
+   keys['\177'] = actionCollapseIntoParent;
    keys['u'] = actionFilterByUser;
    keys['F'] = Action_follow;
    keys['S'] = actionSetup;

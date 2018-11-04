@@ -407,12 +407,13 @@ bool Panel_onKey(Panel* this, int key) {
       break;
    case KEY_PPAGE:
       this->selected -= (this->h - 1);
-      this->scrollV -= (this->h - 1);
+      this->scrollV = MAX(0, this->scrollV - this->h + 1);
       this->needsRedraw = true;
       break;
    case KEY_NPAGE:
       this->selected += (this->h - 1);
-      this->scrollV = MIN(MAX(0, Vector_size(this->items) - this->h), this->selected - this->h);
+      this->scrollV = MAX(0, MIN(Vector_size(this->items) - this->h,
+                                 this->scrollV + this->h - 1));
       this->needsRedraw = true;
       break;
    case KEY_WHEELUP:
@@ -468,7 +469,7 @@ HandlerResult Panel_selectByTyping(Panel* this, int ch) {
       this->eventHandlerState = xCalloc(100, sizeof(char));
    char* buffer = this->eventHandlerState;
 
-   if (ch < 255 && isalnum(ch)) {
+   if (ch > 0 && ch < 255 && isalnum(ch)) {
       int len = strlen(buffer);
       if (len < 99) {
          buffer[len] = ch;
